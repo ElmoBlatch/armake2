@@ -7,9 +7,9 @@ This is an enhanced fork of [KoffeinFlummi's armake2](https://github.com/Koffein
 
 ### ✨ Major Improvements
 
-- **Fully Implemented PAA Conversion** - `paa2img` and `img2paa` commands now work correctly
+- **Fully Implemented PAA Conversion** - `paa2img` and `img2paa` commands now work
   - Proper handling of DXT1/DXT5 compression
-  - Correct dimension parsing (fixes issues with loadscreens and other textures)
+  - Correct dimension parsing
   - LZO compression support
 
 - **Modernized to Rust Edition 2024**
