@@ -478,17 +478,31 @@ impl BISign {
 /// Generates a key pair with the given name.
 ///
 /// The output paths are created by appending extensions to the keyname.
-pub fn cmd_keygen(keyname: PathBuf) -> Result<(), Error> {
+pub fn cmd_keygen(keyname: PathBuf, force: bool) -> Result<(), Error> {
     let private_key = BIPrivateKey::generate(1024, keyname.file_name().unwrap().to_str().unwrap().to_string());
     let public_key = private_key.to_public_key();
     let name = keyname.file_name().unwrap().to_str().unwrap();
 
     let mut private_key_path = keyname.clone();
     private_key_path.set_file_name(format!("{}.biprivatekey", name));
-    private_key.write(&mut File::create(private_key_path).unwrap()).expect("Failed to write private key");
+
+    // Check if private key exists
+    if private_key_path.exists() && !force {
+        return Err(error!("Private key '{}' already exists. Use -f/--force to overwrite.", private_key_path.display()));
+    }
+
+    private_key.write(&mut File::create(&private_key_path).unwrap()).expect("Failed to write private key");
 
     let mut public_key_path = keyname.clone();
     public_key_path.set_file_name(format!("{}.bikey", name));
+
+    // Check if public key exists
+    if public_key_path.exists() && !force {
+        // If we already wrote the private key, we should remove it to keep things consistent
+        std::fs::remove_file(&private_key_path).ok();
+        return Err(error!("Public key '{}' already exists. Use -f/--force to overwrite.", public_key_path.display()));
+    }
+
     public_key.write(&mut File::create(public_key_path).unwrap()).expect("Failed to write public key");
 
     Ok(())

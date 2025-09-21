@@ -1,21 +1,19 @@
-use std::collections::{HashSet};
 use std::fs::{File};
 use std::io::{Error, Read, Cursor, stdin, stdout};
-use std::iter::{FromIterator};
-use std::path::{PathBuf};
+use std::path::{Path, PathBuf};
 
 use crate::*;
 use crate::binarize;
 use crate::config;
 use crate::error::*;
 use crate::io::{Input, Output};
+use crate::paa;
 use crate::pbo;
 use crate::preprocess;
 use crate::sign;
+use crate::warnings;
 
 use serde::Deserialize;
-#[cfg(windows)]
-use ansi_term;
 
 pub const USAGE: &str = "
 armake2
@@ -51,8 +49,8 @@ Commands:
     keygen      Generate a keypair with the specified path (extensions are added).
     sign        Sign a PBO with the given private key.
     verify      Verify a PBO's signature with the given public key.
-    paa2img     Convert PAA to image (PNG only). (not implemented)
-    img2paa     Convert image to PAA. (not implemented)
+    paa2img     Convert PAA to image (PNG only).
+    img2paa     Convert image to PAA.
 
 Options:
     -v --verbose                Enable verbose output.
@@ -102,7 +100,6 @@ pub struct Args {
     flag_compress: bool,
     flag_type: Option<String>,
     flag_version: bool,
-    arg_wname: Vec<String>,
     arg_source: Option<String>,
     arg_target: Option<String>,
     arg_filename: String,
@@ -116,7 +113,7 @@ pub struct Args {
 }
 
 fn get_input(args: &Args) -> Result<Input, Error> {
-    if let Some(ref source) = args.arg_source {
+    if let Some(source) = &args.arg_source {
         Ok(Input::File(File::open(source).prepend_error("Failed to open input file:")?))
     } else {
         let mut buffer: Vec<u8> = Vec::new();
@@ -126,7 +123,11 @@ fn get_input(args: &Args) -> Result<Input, Error> {
 }
 
 fn get_output(args: &Args) -> Result<Output, Error> {
-    if let Some(ref target) = args.arg_target {
+    if let Some(target) = &args.arg_target {
+        // Check if file exists and force flag is not set
+        if Path::new(target).exists() && !args.flag_force {
+            return Err(error!("Output file '{}' already exists. Use -f/--force to overwrite.", target));
+        }
         Ok(Output::File(File::create(target).prepend_error("Failed to open output file:")?))
     } else {
         Ok(Output::Standard(stdout()))
@@ -172,14 +173,29 @@ fn run_command(args: &Args) -> Result<(), Error> {
     } else if args.cmd_cat {
         pbo::cmd_cat(&mut get_input(&args)?, &mut get_output(&args)?, &args.arg_filename)
     } else if args.cmd_unpack {
-        pbo::cmd_unpack(&mut get_input(&args)?, PathBuf::from(&args.arg_targetfolder))
+        pbo::cmd_unpack(&mut get_input(&args)?, PathBuf::from(&args.arg_targetfolder), args.flag_force)
     } else if args.cmd_keygen {
-        sign::cmd_keygen(PathBuf::from(&args.arg_keyname))
+        sign::cmd_keygen(PathBuf::from(&args.arg_keyname), args.flag_force)
     } else if args.cmd_sign {
         let version = if args.flag_v2 { sign::BISignVersion::V2 } else { sign::BISignVersion::V3 };
         sign::cmd_sign(PathBuf::from(&args.arg_privatekey), PathBuf::from(&args.arg_pbo), signature, version)
     } else if args.cmd_verify {
         sign::cmd_verify(PathBuf::from(&args.arg_publickey), PathBuf::from(&args.arg_pbo), signature)
+    } else if args.cmd_paa2img {
+        if args.arg_source.is_none() || args.arg_target.is_none() {
+            return Err(error!("paa2img requires both source and target paths"));
+        }
+        paa::cmd_paa2img(&PathBuf::from(args.arg_source.as_ref().unwrap()), &PathBuf::from(args.arg_target.as_ref().unwrap()), args.flag_force)
+    } else if args.cmd_img2paa {
+        if args.arg_source.is_none() || args.arg_target.is_none() {
+            return Err(error!("img2paa requires both source and target paths"));
+        }
+        let paa_type = match args.flag_type.as_ref().map(|s| s.as_str()) {
+            Some("DXT1") => paa::PaaType::DXT1,
+            Some("DXT5") | None => paa::PaaType::DXT5,
+            Some(t) => return Err(error!("Unknown PAA type: {}. Supported types: DXT1, DXT5", t)),
+        };
+        paa::cmd_img2paa(&PathBuf::from(args.arg_source.as_ref().unwrap()), &PathBuf::from(args.arg_target.as_ref().unwrap()), paa_type, args.flag_compress, args.flag_force)
     } else {
         unreachable!()
     }
@@ -194,18 +210,17 @@ pub fn args(args: &mut Args) {
         args.flag_indent = Some("    ".to_string());
     }
 
-    //println!("{:?}", args);
-
     if args.flag_version {
         println!("v{}", VERSION);
         std::process::exit(0);
     }
 
-    unsafe {
-        WARNINGS_MUTED = Some(HashSet::from_iter(args.flag_warning.clone()));
-        if args.flag_verbose {
-            WARNINGS_MAXIMUM = std::u32::MAX;
-        }
+    // Set up warning system
+    for warning in &args.flag_warning {
+        warnings::mute_warning(warning.clone());
+    }
+    if args.flag_verbose {
+        warnings::set_warnings_maximum(std::u32::MAX);
     }
 
     run_command(&args).print_error(true);
@@ -215,14 +230,12 @@ pub fn args(args: &mut Args) {
 
 #[cfg(windows)]
 fn ansi_support() {
-    // Attempt to enable ANSI support in terminal
-    // Disable colored output if failed
-    if !ansi_term::enable_ansi_support().is_ok() {
-        colored::control::set_override(false);
-    }
+    // The `colored` crate handles Windows ANSI support automatically
+    // on modern Windows versions (Windows 10+)
+    // No additional setup needed
 }
 
 #[cfg(not(windows))]
 fn ansi_support() {
-    unreachable!();
+    // Not called on non-Windows platforms
 }

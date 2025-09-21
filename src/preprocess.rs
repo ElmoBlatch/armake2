@@ -218,7 +218,7 @@ impl Macro {
 
         for token in tokens {
             match token {
-                Token::MacroToken(ref m) => {
+                Token::MacroToken(m) => {
                     let resolved = m.resolve(def_map, stack)?;
                     for t in resolved {
                         result.push(t);
@@ -523,7 +523,7 @@ pub fn preprocess(mut input: String, origin: Option<PathBuf>, includefolders: &[
         import_stack: Vec::new()
     };
 
-    if let Some(ref path) = origin {
+    if let Some(path) = &origin {
         info.import_stack.push(path.clone());
     }
 

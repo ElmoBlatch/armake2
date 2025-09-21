@@ -1,7 +1,7 @@
 #![macro_use]
 
 use std::cmp::{min};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::fmt::{Display};
 use std::io::{Error};
 use std::path::{PathBuf};
@@ -10,10 +10,7 @@ use colored::*;
 
 use crate::config::*;
 use crate::preprocess::*;
-
-pub static mut WARNINGS_MAXIMUM: u32 = 10;
-static mut WARNINGS_RAISED: Option<HashMap<String, u32>> = None;
-pub static mut WARNINGS_MUTED: Option<HashSet<String>> = None;
+use crate::warnings::*;
 
 #[macro_export]
 macro_rules! error {
@@ -56,7 +53,7 @@ impl<T> PreprocessParseErrorExt<T> for Result<T, preprocess_grammar::ParseError>
             Err(pe) => {
                 let line_origin = pe.line - 1;
                 let file_origin = match origin {
-                    Some(ref path) => format!("{}:", path.to_str().unwrap().to_string()),
+                    Some(path) => format!("{}:", path.to_str().unwrap().to_string()),
                     None => "".to_string()
                 };
 
@@ -77,8 +74,8 @@ impl<T> ConfigParseErrorExt<T> for Result<T, config_grammar::ParseError> {
             Ok(t) => Ok(t),
             Err(pe) => {
                 let line_origin = info.line_origins[min(pe.line, info.line_origins.len()) - 1].0 as usize;
-                let file_origin = match info.line_origins[min(pe.line, info.line_origins.len()) - 1].1 {
-                    Some(ref path) => format!("{}:", path.to_str().unwrap().to_string()),
+                let file_origin = match &info.line_origins[min(pe.line, info.line_origins.len()) - 1].1 {
+                    Some(path) => format!("{}:", path.to_str().unwrap().to_string()),
                     None => "".to_string()
                 };
 
@@ -105,26 +102,10 @@ fn format_parse_error(line: &str, file: String, line_number: usize, column_numbe
 }
 
 pub fn warning<M: AsRef<[u8]> + Display>(msg: M, name: Option<&'static str>, location: (Option<M>,Option<u32>)) {
-    unsafe {
-        if WARNINGS_MUTED.is_none() {
-            return;
-        }
-
-        if WARNINGS_RAISED.is_none() {
-            WARNINGS_RAISED = Some(HashMap::new());
-        }
-
-        if let Some(name) = name {
-            let raised = WARNINGS_RAISED.as_ref().unwrap().get(name).unwrap_or(&0);
-            WARNINGS_RAISED.as_mut().unwrap().insert(name.to_string(), raised + 1);
-
-            if raised >= &WARNINGS_MAXIMUM {
-                return;
-            }
-
-            if WARNINGS_MUTED.as_ref().unwrap().contains(name) {
-                return;
-            }
+    // Check if warning should be shown
+    if let Some(name) = name {
+        if !raise_warning(name) {
+            return; // Warning is muted or exceeded maximum
         }
     }
 
@@ -147,46 +128,24 @@ pub fn warning<M: AsRef<[u8]> + Display>(msg: M, name: Option<&'static str>, loc
 }
 
 pub fn warning_suppressed(name: Option<&'static str>) -> bool {
-    if name.is_none() {
-        return false;
-    }
-
-    unsafe {
-        if WARNINGS_MUTED.is_none() {
-            return true;
-        }
-
-        if WARNINGS_MUTED.as_ref().unwrap().contains(name.unwrap()) {
-            return true;
-        }
-
-        if WARNINGS_RAISED.is_some() {
-            let raised = WARNINGS_RAISED.as_ref().unwrap().get(name.unwrap()).unwrap_or(&0);
-            raised >= &WARNINGS_MAXIMUM
-        } else {
-            false
-        }
+    if let Some(name) = name {
+        is_warning_muted(name) || has_exceeded_maximum(name)
+    } else {
+        false
     }
 }
 
 pub fn print_warning_summary() {
-    unsafe {
-        if WARNINGS_RAISED.is_none() || WARNINGS_MUTED.is_none() {
-            return;
-        }
+    let summary = get_warning_summary();
 
-        for (name, raised) in WARNINGS_RAISED.as_ref().unwrap().iter() {
-            if WARNINGS_MUTED.as_ref().unwrap().contains(name) { continue; }
-
-            if *raised <= WARNINGS_MAXIMUM { continue; }
-            let excess = *raised - WARNINGS_MAXIMUM;
-
+    for (name, _raised, excess) in summary {
+        if excess > 0 {
             if excess > 1 {
                 warning(format!("{} warnings of type \"{}\" were suppressed to prevent spam. Use \"-w {}\" to disable these warnings entirely.",
-                    excess, name, name), None, (None, None));
+                    excess, name, name), None, (None::<String>, None));
             } else {
                 warning(format!("{} warning of type \"{}\" was suppressed to prevent spam. Use \"-w {}\" to disable these warnings entirely.",
-                    excess, name, name), None, (None, None));
+                    excess, name, name), None, (None::<String>, None));
             }
         }
     }

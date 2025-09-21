@@ -9,36 +9,48 @@ homepage = "https://github.com/KoffeinFlummi/armake2"
 repository = "https://github.com/KoffeinFlummi/armake2"
 build = "build.rs"
 readme = "README.md"
-edition = "2018"
-
-[lib]
-name = "armake2"
-
-[[bench]]
-name = "preprocess"
-harness = false
-
-[[bench]]
-name = "config"
-harness = false
+edition = "2024"
 
 [dependencies]
-colored = "1.6"
-time = "0.1"
 byteorder = "1"
+cached = "0.5"
+chrono = "0.4"
+clap = "2"
+colored = "2"
 docopt = "1"
-serde = { version = "1.0", features = ["derive"] }
-openssl = "0.10"
+flate2 = "1"
+git2 = "0.13"
+indexmap = "1"
+lazy_static = "1"
+libc = "0.2"
 linked-hash-map = "0.5"
+openssl = { version = "0.10", features = ["vendored"] }
+rand = "0.8"
+rayon = "1"
 regex = "1"
+remove_dir_all = "0.5"
+rpassword = "5"
+serde = "1"
+serde_derive = "1"
+termcolor = "1"
+toml = "0.5"
+walkdir = "2"
+# PAA conversion dependencies
+image = "0.24"
+texpresso = "2.0"
+ddsfile = "0.5"
+minilzo-rs = "0.6"
 
 [target.'cfg(windows)'.dependencies]
-ansi_term = "0.11"
-winreg = "0.6.0"
-
-[build-dependencies]
-peg = "0.5"
+winreg = "0.10"
 
 [dev-dependencies]
+criterion = "0.3"
+quickcheck = "1"
 tempfile = "3"
-criterion = "0.2"
+
+[build-dependencies]
+peg = "0.5.7"
+
+[profile.release]
+lto = true

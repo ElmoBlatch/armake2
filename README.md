@@ -1,92 +1,61 @@
-armake2
-=======
+armake2 - Enhanced Fork
+========================
 
-[![](https://img.shields.io/travis/KoffeinFlummi/armake2.svg?logo=travis&style=flat)](https://travis-ci.org/KoffeinFlummi/armake2)
-[![](https://img.shields.io/appveyor/ci/KoffeinFlummi/armake2.svg?logo=appveyor&style=flat)](https://ci.appveyor.com/project/KoffeinFlummi/armake2)
-[![](https://img.shields.io/crates/v/armake2.svg?logo=rust&style=flat)](https://crates.io/crates/armake2)
+This is an enhanced fork of [KoffeinFlummi's armake2](https://github.com/KoffeinFlummi/armake2), bringing the project up to date with modern Rust standards and completing previously unimplemented features.
 
-Successor to [armake](https://github.com/KoffeinFlummi/armake) written in Rust for maintainability and memory safety, aiming to provide the same features except for the custom P3D binarization, which was never finished.
+## What's New in This Fork
 
-**Status:** PAA commands not implemented, some options not implemented, testing.
+### ✨ Major Improvements
 
-## Changes since armake
+- **Fully Implemented PAA Conversion** - `paa2img` and `img2paa` commands now work correctly
+  - Proper handling of DXT1/DXT5 compression
+  - Correct dimension parsing (fixes issues with loadscreens and other textures)
+  - LZO compression support
 
-- New v3 signatures
-- Signature verification
-- Seperate `preprocess` command
-- Seperate `pack` command for non-binarized PBOs instead of `build -p`
-- Configs are now rapified via the `rapify` command
-- Improved config parser errors
-- Automatic warning truncation to prevent spam
+- **Modernized to Rust Edition 2024**
+  - Updated all deprecated patterns and syntax
+  - Thread-safe implementation replacing unsafe static mutables
+  - Zero compilation warnings
 
-### Performance
+- **No External Dependencies Required**
+  - OpenSSL is vendored (compiled into the binary)
+  - Pre-compiled binaries work out-of-the-box on Windows and Linux
+  - No need to install or configure OpenSSL separately
 
-Performance should be equal or better than `armake` depending on modification makeup and environment. More is done in-memory, reducing disk I/O at the expense of memory usage. Especially during binarization, less copies are performed, resulting in much faster builds for asset-heavy modifications or users without SSDs.
+- **Fully Implemented CLI Flags**
+  - `--force` flag now works for all commands that create files
+  - Proper file overwrite protection
 
-#### BWMod build benchmarks
+## Download
 
-**armake1:**
+Check the [Releases](../../releases) page for pre-compiled binaries:
+- `armake2` - Linux x86_64 (standalone, no dependencies)
+- `armake2.exe` - Windows x86_64 (standalone, no dependencies)
 
-```
-Time (mean ± σ):     676.463 s ± 17.609 s    [User: 1.5 ms, System: 3.9 ms]
-Range (min … max):   653.793 s … 706.619 s
-```
+## Building from Source
 
-**armake2:**
+Requirements:
+- Rust 1.87.0 or later
+- Cargo (Rust's package manager)
 
-```
-Time (mean ± σ):     434.666 s ±  1.109 s    [User: 0.0 ms, System: 4.1 ms]
-Range (min … max):   433.415 s … 435.526 s
-```
-
-**Speedup:** 1.56
-
-#### ACE3 build benchmarks
-
-[`da7bb856f`](https://github.com/acemod/ACE3/commit/da7bb856fb6e699d66b0ff2d0da92e65726a9305)
-
-**armake1:**
-
-```
-Time (mean ± σ):     110.083 s ±  2.772 s    [User: 4.9 ms, System: 16.8 ms]
-Range (min … max):   108.270 s … 113.274 s
-```
-
-**armake2:**
-
-```
-Time (mean ± σ):     98.190 s ±  0.452 s    [User: 0.0 ms, System: 13.6 ms]
-Range (min … max):   97.767 s … 98.666 s
-```
-
-**Speedup:** 1.12
-
-(all benchmarks performed with 4 threads on a 4 core VM on an i5-8600K)
-
-## Building
-
-The build requires `cargo`, Rust's package manager and the OpenSSL development libraries.
-To compile and run, use:
-
-```
-cargo run
-```
-
-To build a release, use:
-
-```
+### Linux
+```bash
 cargo build --release
 ```
 
-In order to build, you'll need to have OpenSSL installed on your system.
+### Windows Cross-Compilation from Linux
+```bash
+# Install MinGW toolchain
+sudo apt-get install mingw-w64
 
-On **Linux**, the easiest way is to install OpenSSL via your system's package manager (if it is not installed already). Make sure you also have the development packages of OpenSSL installed. For example, `libssl-dev` on Ubuntu or `openssl-devel` on Fedora.
+# Add Windows target
+rustup target add x86_64-pc-windows-gnu
 
-On **Windows**, the easiest way to get compilation and static linking of OpenSSL to work is to download [pre-compiled OpenSSL binaries](http://slproweb.com/products/Win32OpenSSL.html) (non-light, 64-bit) and set the following environment variables:
+# Build
+cargo build --release --target x86_64-pc-windows-gnu
+```
 
-- `OPENSSL_DIR=C:\OpenSSL-WIN64`
-- `OPENSSL_STATIC=1`
-- `OPENSSL_LIBS=libssl_static:libcrypto_static`
+The binaries will be in `target/release/` or `target/x86_64-pc-windows-gnu/release/`.
 
 ## Usage
 
@@ -99,17 +68,117 @@ Usage:
     armake2 derapify [-v] [-f] [-d <indentation>] [<source> [<target>]]
     armake2 binarize [-v] [-f] [-w <wname>]... <source> <target>
     armake2 build [-v] [-f] [-w <wname>]... [-i <includefolder>]... [-x <excludepattern>]... [-e <headerext>]... [-k <privatekey>] [-s <signature>] <sourcefolder> [<target>]
-    armake2 pack [-v] [-f] <sourcefolder> [<target>]
+    armake2 pack [-v] [-f] [-x <excludepattern>]... [-e <headerext>]... [-k <privatekey>] [-s <signature>] <sourcefolder> [<target>]
     armake2 inspect [-v] [<source>]
     armake2 unpack [-v] [-f] <source> <targetfolder>
     armake2 cat [-v] <source> <filename> [<target>]
     armake2 keygen [-v] [-f] <keyname>
-    armake2 sign [-v] [-f] [-s <signature>] [--v2] <privatekey> <pbo> [<signature>]
+    armake2 sign [-v] [-f] [--v2] <privatekey> <pbo> [<signature>]
     armake2 verify [-v] <publickey> <pbo> [<signature>]
-    armake2 paa2img [-v] [-f] [<source> [<target>]]
-    armake2 img2paa [-v] [-f] [-z] [-t <paatype>] [<source> [<target>]]
+    armake2 paa2img [-v] [-f] <source> <target>
+    armake2 img2paa [-v] [-f] [-z] [-t <paatype>] <source> <target>
     armake2 (-h | --help)
     armake2 --version
+
+Commands:
+    rapify      Preprocess and rapify a config file
+    preprocess  Preprocess a file
+    derapify    Derapify a config
+    binarize    Binarize a file using BI's binarize.exe (Windows only)
+    build       Build a PBO from a folder
+    pack        Pack a folder into a PBO without binarization/rapification
+    inspect     Inspect a PBO and list contained files
+    unpack      Unpack a PBO into a folder
+    cat         Read a file from a PBO to stdout
+    keygen      Generate a signing keypair
+    sign        Sign a PBO with a private key
+    verify      Verify a PBO's signature
+    paa2img     Convert PAA to PNG image
+    img2paa     Convert image to PAA format
+
+Options:
+    -v --verbose    Enable verbose output
+    -f --force      Overwrite existing files
+    -w --warning    Disable specific warning
+    -i --include    Add include folder for preprocessing
+    -x --exclude    Exclude files matching pattern
+    -e --headerext  Add PBO header extension
+    -k --key        Private key for signing
+    -s --signature  Custom signature path
+    -z --compress   Enable LZO compression (img2paa)
+    -t --type       PAA type: DXT1 or DXT5 (img2paa)
+    --v2            Use v2 signatures (sign)
 ```
 
-See `armake2 --help` for more.
+### PAA Conversion Examples
+
+Convert PAA to PNG:
+```bash
+armake2 paa2img texture.paa texture.png
+```
+
+Convert PNG to PAA with DXT5 (default, with alpha):
+```bash
+armake2 img2paa image.png texture.paa
+```
+
+Convert PNG to PAA with DXT1 (no alpha, smaller file):
+```bash
+armake2 img2paa -t DXT1 image.png texture.paa
+```
+
+Convert with LZO compression for smaller file size:
+```bash
+armake2 img2paa -z image.png texture.paa
+```
+
+### PBO Operations Examples
+
+Build a PBO:
+```bash
+armake2 build -f mymod.p3d mymod.pbo
+```
+
+Build and sign a PBO:
+```bash
+armake2 keygen mykey
+armake2 build -k mykey.biprivatekey mission.sqm mission.pbo
+```
+
+Unpack a PBO:
+```bash
+armake2 unpack mission.pbo mission_folder/
+```
+
+## Technical Details
+
+### PAA Format Support
+- **DXT1**: RGB compression, no alpha channel, 4:1 compression ratio
+- **DXT5**: RGBA compression, with alpha channel, 4:1 compression ratio
+- **LZO**: Additional compression layer for smaller file sizes
+- Automatic mipmap generation
+- Proper handling of compression flags in PAA headers
+
+### Changes from Original armake2
+
+- PAA conversion fully implemented (was previously disabled)
+- Updated from Rust 2018 to Rust 2024 edition
+- Replaced unsafe static mutable warnings system with thread-safe implementation
+- Fixed deprecated language patterns (`...` → `..=`, removed `ref` patterns)
+- Vendored OpenSSL to eliminate external dependencies
+- Implemented all documented but missing CLI functionality
+- Fixed PAA dimension parsing (high bit is compression flag, not part of dimensions)
+
+## Credits
+
+- Original armake and armake2 by [KoffeinFlummi](https://github.com/KoffeinFlummi)
+- PAA format implementation based on the original [armake](https://github.com/KoffeinFlummi/armake) C code
+- This fork maintained to keep these essential Arma modding tools alive and modern
+
+## License
+
+GPL-2.0 or later (same as original armake2)
+
+## Contributing
+
+Issues and pull requests are welcome!

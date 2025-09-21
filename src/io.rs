@@ -14,34 +14,34 @@ pub enum Output {
 
 impl Read for Input {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        match *self {
-            Input::File(ref mut f)   => f.read(buf),
-            Input::Cursor(ref mut c) => c.read(buf),
+        match self {
+            Input::File(f)   => f.read(buf),
+            Input::Cursor(c) => c.read(buf),
         }
     }
 }
 
 impl Seek for Input {
     fn seek(&mut self, pos: io::SeekFrom) -> io::Result<u64> {
-        match *self {
-            Input::File(ref mut f)   => f.seek(pos),
-            Input::Cursor(ref mut c) => c.seek(pos),
+        match self {
+            Input::File(f)   => f.seek(pos),
+            Input::Cursor(c) => c.seek(pos),
         }
     }
 }
 
 impl Write for Output {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        match *self {
-            Output::File(ref mut f)     => f.write(buf),
-            Output::Standard(ref mut s) => s.write(buf),
+        match self {
+            Output::File(f)     => f.write(buf),
+            Output::Standard(s) => s.write(buf),
         }
     }
 
     fn flush(&mut self) -> io::Result<()> {
-        match *self {
-            Output::File(ref mut f)     => f.flush(),
-            Output::Standard(ref mut s) => s.flush(),
+        match self {
+            Output::File(f)     => f.flush(),
+            Output::Standard(s) => s.flush(),
         }
     }
 }

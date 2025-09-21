@@ -349,7 +349,15 @@ pub fn cmd_cat<I: Read, O: Write>(input: &mut I, output: &mut O, name: &str) -> 
     Ok(())
 }
 
-pub fn cmd_unpack<I: Read>(input: &mut I, output: PathBuf) -> Result<(), Error> {
+pub fn cmd_unpack<I: Read>(input: &mut I, output: PathBuf, force: bool) -> Result<(), Error> {
+    // Check if output directory exists and has files
+    if output.exists() && !force {
+        // Check if directory is not empty
+        if read_dir(&output).map(|mut d| d.next().is_some()).unwrap_or(false) {
+            return Err(error!("Output directory '{}' already exists and is not empty. Use -f/--force to overwrite.", output.display()));
+        }
+    }
+
     let pbo = PBO::read(input).prepend_error("Failed to read PBO:")?;
 
     create_dir_all(&output).prepend_error("Failed to create output folder:")?;
