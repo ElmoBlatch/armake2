@@ -178,7 +178,3 @@ armake2 unpack mission.pbo mission_folder/
 ## License
 
 GPL-2.0 or later (same as original armake2)
-
-## Contributing
-
-Issues and pull requests are welcome!
